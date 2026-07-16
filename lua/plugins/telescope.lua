@@ -1,3 +1,68 @@
+-- Scoped grep: live_grep with an adjustable scope. INSIDE the picker:
+--   <C-o> -> set the directory to search in
+--   <C-e> -> set ignored extensions / globs (e.g. "js, json" or "*.test.ts")
+-- Both persist for the session, are shown in the picker title, and the
+-- half-typed query survives the adjustment.
+local grep_scope = { dir = nil, exclude = {} }
+
+local function scoped_grep(default_text)
+  local title = "Live Grep"
+  if grep_scope.dir then
+    title = title .. "  " .. grep_scope.dir
+  end
+  if #grep_scope.exclude > 0 then
+    title = title .. "  !" .. table.concat(grep_scope.exclude, ",")
+  end
+  require("telescope.builtin").live_grep({
+    prompt_title = title .. "  (C-o:dir C-e:除外)",
+    search_dirs = grep_scope.dir and { grep_scope.dir } or nil,
+    additional_args = function()
+      local args = {}
+      for _, g in ipairs(grep_scope.exclude) do
+        args[#args + 1] = "--glob=!" .. g
+      end
+      return args
+    end,
+    default_text = default_text,
+    attach_mappings = function(bufnr, map)
+      local actions = require("telescope.actions")
+      local action_state = require("telescope.actions.state")
+      local function adjust(key, input_opts, apply)
+        map({ "i", "n" }, key, function()
+          local query = action_state.get_current_line()
+          actions.close(bufnr)
+          vim.ui.input(input_opts, function(v)
+            if v ~= nil then
+              apply(v)
+            end
+            vim.schedule(function()
+              scoped_grep(query)
+            end)
+          end)
+        end)
+      end
+      adjust("<C-o>", {
+        prompt = "検索ディレクトリ (空=プロジェクト全体): ",
+        default = grep_scope.dir or "",
+        completion = "dir",
+      }, function(v)
+        grep_scope.dir = v ~= "" and v or nil
+      end)
+      adjust("<C-e>", {
+        prompt = "無視する拡張子/グロブ (例: js, json / 空=解除): ",
+        default = table.concat(grep_scope.exclude, ", "),
+      }, function(v)
+        grep_scope.exclude = {}
+        for token in v:gmatch("[^,%s]+") do
+          -- bare extension -> *.ext, anything with * or / is used as-is
+          grep_scope.exclude[#grep_scope.exclude + 1] = token:find("[*/]") and token or ("*." .. token)
+        end
+      end)
+      return true
+    end,
+  })
+end
+
 -- Window picker: list every open window (tree / editor / terminal ...),
 -- cycle with <C-n>/<C-p> (or arrows) and jump to it with <Enter>.
 local function pick_window()
@@ -70,7 +135,7 @@ return {
   keys = {
     { "<leader>ff", "<cmd>Telescope find_files<cr>", desc = "Find files" },
     { "<C-p>", "<cmd>Telescope find_files<cr>", desc = "Find files (VS Code style)" },
-    { "<leader>fg", "<cmd>Telescope live_grep<cr>", desc = "Live grep (whole project)" },
+    { "<leader>fg", scoped_grep, desc = "Live grep (C-o: dir / C-e: exclude)" },
     {
       -- Same fg UI, but you can type rg args inline: `foo -g!*.js apps/backend`
       "<leader>fh",
