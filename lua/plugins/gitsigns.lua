@@ -10,6 +10,14 @@ return {
       topdelete = { text = "‾" },
       changedelete = { text = "~" },
     },
+    -- GitLens-style inline blame on the current line
+    -- (author, date • commit summary as dim virtual text)
+    current_line_blame = true,
+    current_line_blame_opts = {
+      delay = 400,
+      virt_text_pos = "eol",
+    },
+    current_line_blame_formatter = "<author>, <author_time:%Y-%m-%d> • <summary>",
     on_attach = function(bufnr)
       local gs = require("gitsigns")
       local function map(mode, lhs, rhs, desc)
@@ -39,6 +47,7 @@ return {
       map("n", "<leader>hb", function()
         gs.blame_line({ full = true })
       end, "Blame line")
+      map("n", "<leader>hB", gs.toggle_current_line_blame, "Toggle inline blame")
       map("n", "<leader>hd", gs.diffthis, "Diff current file")
     end,
   },
