@@ -60,6 +60,51 @@ function M.open_tree(open_cmd)
 	end
 end
 
+---Detect and repair a broken arrangement (terminal-priority mode only):
+---with exactly one terminal strip visible it must be full-width at the very
+---bottom. Whatever corrupted it (window moves, closes, plugins), re-placing
+---the strip restores the canonical layout. Returns true when it repaired.
+function M.reassert_strip()
+	if M.tree_full_height then
+		return false -- tree-priority mode has no strip invariant
+	end
+	local term_wins = {}
+	for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+		if vim.bo[vim.api.nvim_win_get_buf(w)].filetype == "toggleterm" then
+			table.insert(term_wins, w)
+		end
+	end
+	if #term_wins ~= 1 then
+		return false -- side-by-side terminals (2<C-j>) are legitimate
+	end
+	local tw = term_wins[1]
+	local full_width = vim.api.nvim_win_get_width(tw) == vim.o.columns
+	local bottom = true
+	local trow = vim.api.nvim_win_get_position(tw)[1]
+	for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+		if w ~= tw and vim.api.nvim_win_get_config(w).relative == "" then
+			local r = vim.api.nvim_win_get_position(w)[1]
+			if r > trow then
+				bottom = false -- something sits BELOW the strip
+			end
+		end
+	end
+	if full_width and bottom then
+		return false -- all good
+	end
+	local cur = vim.api.nvim_get_current_win()
+	vim.cmd("ToggleTermToggleAll")
+	vim.cmd("ToggleTermToggleAll")
+	vim.cmd("stopinsert")
+	-- the strip may have inherited a broken height; reset to the default
+	local healed = windows.win_with_ft("toggleterm")
+	if healed then
+		vim.api.nvim_win_set_height(healed, 15)
+	end
+	focus(cur)
+	return true
+end
+
 ---Flip the layout priority; re-apply immediately when both are visible.
 function M.switch()
 	M.tree_full_height = not M.tree_full_height

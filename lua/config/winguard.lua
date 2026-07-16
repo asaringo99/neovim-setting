@@ -55,6 +55,10 @@ local function sweep()
 			end
 		end
 	end
+
+	-- geometry: the terminal strip must stay a full-width bottom row
+	require("config.layout").reassert_strip()
+
 	guarding = false
 end
 
