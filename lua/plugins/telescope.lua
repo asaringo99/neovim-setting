@@ -1,11 +1,46 @@
 -- Scoped grep: live_grep with an adjustable scope. INSIDE the picker:
---   <C-o> -> set the directory to search in
+--   <C-o> -> pick the directory to search in (fuzzy: type "backend" etc.)
 --   <C-e> -> set ignored extensions / globs (e.g. "js, json" or "*.test.ts")
 -- Both persist for the session, are shown in the picker title, and the
 -- half-typed query survives the adjustment.
 local grep_scope = { dir = nil, exclude = {} }
 
-local function scoped_grep(default_text)
+local scoped_grep -- forward declaration (pick_scope_dir reopens it)
+
+-- Fuzzy directory chooser: lists project directories, "backend" finds
+-- "apps/backend". Selecting "." resets to the whole project.
+local function pick_scope_dir(query)
+  local pickers = require("telescope.pickers")
+  local finders = require("telescope.finders")
+  local conf = require("telescope.config").values
+  local actions = require("telescope.actions")
+  local action_state = require("telescope.actions.state")
+  pickers
+    .new({}, {
+      prompt_title = "検索ディレクトリを選択 ( . = プロジェクト全体に戻す)",
+      finder = finders.new_oneshot_job({
+        "find", ".", "-maxdepth", "8",
+        "(", "-name", "node_modules", "-o", "-name", ".git", "-o", "-name", "cdk.out", ")",
+        "-prune", "-o", "-type", "d", "-print",
+      }, {}),
+      sorter = conf.generic_sorter({}),
+      attach_mappings = function(bufnr)
+        actions.select_default:replace(function()
+          local entry = action_state.get_selected_entry()
+          actions.close(bufnr)
+          local dir = (entry and entry[1] or "."):gsub("^%./", "")
+          grep_scope.dir = (dir ~= "" and dir ~= ".") and dir or nil
+          vim.schedule(function()
+            scoped_grep(query)
+          end)
+        end)
+        return true
+      end,
+    })
+    :find()
+end
+
+function scoped_grep(default_text)
   local title = "Live Grep"
   if grep_scope.dir then
     title = title .. "  " .. grep_scope.dir
@@ -41,12 +76,12 @@ local function scoped_grep(default_text)
           end)
         end)
       end
-      adjust("<C-o>", {
-        prompt = "検索ディレクトリ (空=プロジェクト全体): ",
-        default = grep_scope.dir or "",
-        completion = "dir",
-      }, function(v)
-        grep_scope.dir = v ~= "" and v or nil
+      map({ "i", "n" }, "<C-o>", function()
+        local query = action_state.get_current_line()
+        actions.close(bufnr)
+        vim.schedule(function()
+          pick_scope_dir(query)
+        end)
       end)
       adjust("<C-e>", {
         prompt = "無視する拡張子/グロブ (例: js, json / 空=解除): ",
