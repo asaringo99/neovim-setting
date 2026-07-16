@@ -1,11 +1,11 @@
--- Auto-save (VS Code style): write the file whenever editing pauses.
--- `update` only writes when the buffer is actually modified.
--- Toggle at runtime with :AutoSaveToggle.
+-- Saving policy: explicit Ctrl+S (see keymaps.lua), VS Code style.
+-- Optional mild auto-save (write when focus leaves the buffer / app) can be
+-- turned on with :AutoSaveToggle — it never saves on Esc / while typing.
 
-vim.g.autosave_enabled = true
+vim.g.autosave_enabled = false
 
-vim.api.nvim_create_autocmd({ "InsertLeave", "TextChanged", "BufLeave", "FocusLost" }, {
-	desc = "Auto-save",
+vim.api.nvim_create_autocmd({ "BufLeave", "FocusLost" }, {
+	desc = "Auto-save (opt-in)",
 	-- nested: the :update below must fire BufWritePre/Post so that plugins
 	-- (gitsigns refresh, future format-on-save, ...) see the write
 	nested = true,
@@ -30,5 +30,5 @@ vim.api.nvim_create_autocmd({ "InsertLeave", "TextChanged", "BufLeave", "FocusLo
 
 vim.api.nvim_create_user_command("AutoSaveToggle", function()
 	vim.g.autosave_enabled = not vim.g.autosave_enabled
-	vim.notify("AutoSave: " .. (vim.g.autosave_enabled and "ON" or "OFF"))
+	vim.notify("AutoSave: " .. (vim.g.autosave_enabled and "ON (フォーカスが外れた時に保存)" or "OFF"))
 end, {})

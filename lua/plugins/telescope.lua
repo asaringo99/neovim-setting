@@ -180,16 +180,7 @@ return {
       desc = "Live grep with args (globs / paths inline)",
     },
     { "<leader>fw", "<cmd>Telescope grep_string<cr>", desc = "Grep word under cursor" },
-    { "<C-s>", pick_window, desc = "Pick window (tree/editor/terminal)" },
-    {
-      "<C-s>",
-      function()
-        vim.cmd("stopinsert")
-        vim.schedule(pick_window)
-      end,
-      mode = "t",
-      desc = "Pick window (from terminal)",
-    },
+    { "<leader>w", pick_window, desc = "Pick window (tree/editor/terminal)" },
     { "<leader>gs", "<cmd>Telescope git_status<cr>", desc = "Changed files (git status)" },
     { "<leader>fb", "<cmd>Telescope buffers<cr>", desc = "Find buffers" },
     { "<leader>fH", "<cmd>Telescope help_tags<cr>", desc = "Help tags" },

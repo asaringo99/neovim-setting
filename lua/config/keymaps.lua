@@ -3,6 +3,9 @@
 -- Quickly leave insert mode by typing "jk"
 vim.keymap.set("i", "jk", "<Esc>", { desc = "Exit insert mode" })
 
+-- Ctrl+S saves (VS Code style; works in insert mode without leaving it)
+vim.keymap.set({ "n", "i" }, "<C-s>", "<cmd>update<cr>", { desc = "Save file" })
+
 -- ---------------------------------------------------------------------------
 -- VS Code-style selection
 -- ---------------------------------------------------------------------------
