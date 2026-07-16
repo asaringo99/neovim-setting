@@ -31,5 +31,20 @@ return {
         end
       end,
     })
+
+    -- Pre-warm treesitter for common languages in the background: start a
+    -- highlighter once on a scratch buffer, which pays every one-time cost
+    -- (parser load, query compilation ~30-120ms per language) at startup
+    -- instead of on the first preview/open.
+    vim.defer_fn(function()
+      for _, lang in ipairs({ "typescript", "tsx", "javascript", "python", "lua", "json", "yaml", "markdown" }) do
+        pcall(function()
+          local buf = vim.api.nvim_create_buf(false, true)
+          vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "x" })
+          vim.treesitter.start(buf, lang)
+          vim.api.nvim_buf_delete(buf, { force = true })
+        end)
+      end
+    end, 1500)
   end,
 }
