@@ -17,7 +17,7 @@ local function pick_scope_dir(query)
   local action_state = require("telescope.actions.state")
   pickers
     .new({}, {
-      prompt_title = "検索ディレクトリを選択 ( . = プロジェクト全体に戻す)",
+      prompt_title = "検索ディレクトリ (スペース区切りでAND絞り込み: backend src / . = 全体)",
       finder = finders.new_oneshot_job({
         "find", ".", "-maxdepth", "8",
         "(", "-name", "node_modules", "-o", "-name", ".git", "-o", "-name", "cdk.out", ")",
