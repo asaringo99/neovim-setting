@@ -30,7 +30,8 @@ require("lazy").setup({
   -- Configure any other settings here. See the documentation for more details.
   -- colorscheme that will be used when installing plugins.
   install = { colorscheme = { "onedark", "habamax" } },
-  -- check for plugin updates, but don't interrupt with popups
-  checker = { enabled = true, notify = false },
+  -- no background update polling (periodic git fetch for every plugin);
+  -- check manually with :Lazy when convenient
+  checker = { enabled = false },
   change_detection = { notify = false },
 })

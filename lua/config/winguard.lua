@@ -62,10 +62,19 @@ local function sweep()
 	guarding = false
 end
 
+local scheduled = false
 vim.api.nvim_create_autocmd({ "BufWinEnter", "WinEnter", "TermEnter", "TermLeave", "FocusGained" }, {
 	desc = "Keep files in editor windows and terminals in the terminal strip",
 	callback = function()
-		-- run after whatever command triggered the event has fully finished
-		vim.schedule(sweep)
+		-- coalesce event bursts into a single sweep per main-loop tick,
+		-- run after whatever command triggered the events has finished
+		if scheduled then
+			return
+		end
+		scheduled = true
+		vim.schedule(function()
+			scheduled = false
+			sweep()
+		end)
 	end,
 })

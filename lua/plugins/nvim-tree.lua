@@ -134,8 +134,19 @@ return {
 			if vim.api.nvim_win_get_buf(ewin) == buf then
 				return -- already showing this file
 			end
-			vim.fn.bufload(buf)
-			vim.api.nvim_win_set_buf(ewin, buf)
+			-- LIGHTWEIGHT preview: suppress all autocmds so no treesitter /
+			-- LSP / gitsigns machinery starts (~125ms per file otherwise).
+			-- The full experience kicks in when the file is really opened.
+			local ei = vim.o.eventignore
+			vim.o.eventignore = "all"
+			local ok = pcall(function()
+				vim.fn.bufload(buf)
+				vim.api.nvim_win_set_buf(ewin, buf)
+			end)
+			vim.o.eventignore = ei
+			if ok and vim.bo[buf].filetype == "" then
+				vim.b[buf].preview_plain = true -- finish setup on real open
+			end
 		end
 		vim.api.nvim_create_autocmd("CursorMoved", {
 			desc = "nvim-tree preview follow",
@@ -145,6 +156,23 @@ return {
 				end
 				timer:stop()
 				timer:start(120, 0, vim.schedule_wrap(preview_under_cursor))
+			end,
+		})
+
+		-- When a lightweight-previewed buffer is REALLY entered (Enter in the
+		-- tree, picked from telescope, ...), run the skipped setup once:
+		-- filetype detection fires treesitter / LSP / gitsigns as usual.
+		vim.api.nvim_create_autocmd("BufEnter", {
+			desc = "Promote plain preview buffers to fully-loaded files",
+			nested = true,
+			callback = function(ev)
+				if vim.b[ev.buf].preview_plain then
+					vim.b[ev.buf].preview_plain = nil
+					vim.api.nvim_buf_call(ev.buf, function()
+						vim.cmd("filetype detect")
+						vim.cmd("doautocmd BufReadPost")
+					end)
+				end
 			end,
 		})
 	end,
