@@ -11,8 +11,13 @@ return {
       theme = "onedark",
     },
     sections = {
-      -- relative path instead of bare filename (useful in the monorepo)
-      lualine_c = { { "filename", path = 1 } },
+      -- relative path + "which hunk am I on / total hunks" (± 2/5)
+      lualine_c = {
+        { "filename", path = 1 },
+        function()
+          return require("config.hunkinfo").status(0)
+        end,
+      },
     },
   },
 }

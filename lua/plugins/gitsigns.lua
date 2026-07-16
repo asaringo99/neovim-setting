@@ -24,20 +24,26 @@ return {
         vim.keymap.set(mode, lhs, rhs, { buffer = bufnr, silent = true, desc = desc })
       end
 
-      -- Jump between changed hunks (falls back to diff-mode ]c/[c)
-      map("n", "]c", function()
+      -- Jump between changed hunks (falls back to diff-mode ]c/[c),
+      -- echoing "変更 i/n" after the jump
+      local function nav(dir)
         if vim.wo.diff then
-          vim.cmd.normal({ "]c", bang = true })
-        else
-          gs.nav_hunk("next")
+          vim.cmd.normal({ (dir == "next" and "]c" or "[c"), bang = true })
+          return
         end
+        gs.nav_hunk(dir)
+        vim.defer_fn(function()
+          local s = require("config.hunkinfo").status(bufnr)
+          if s ~= "" then
+            vim.api.nvim_echo({ { "変更 " .. s, "None" } }, false, {})
+          end
+        end, 80)
+      end
+      map("n", "]c", function()
+        nav("next")
       end, "Next git hunk")
       map("n", "[c", function()
-        if vim.wo.diff then
-          vim.cmd.normal({ "[c", bang = true })
-        else
-          gs.nav_hunk("prev")
-        end
+        nav("prev")
       end, "Prev git hunk")
 
       -- Inspect / act on the hunk under the cursor
