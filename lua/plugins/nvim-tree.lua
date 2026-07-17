@@ -176,6 +176,9 @@ return {
 			callback = function(ev)
 				if vim.b[ev.buf].preview_plain then
 					vim.b[ev.buf].preview_plain = nil
+					-- preview buffers are unlisted; a really-opened file must
+					-- show up as a tab (bufferline) and in the S-h/S-l cycle
+					vim.bo[ev.buf].buflisted = true
 					vim.api.nvim_buf_call(ev.buf, function()
 						vim.cmd("filetype detect")
 						vim.cmd("doautocmd BufReadPost")
