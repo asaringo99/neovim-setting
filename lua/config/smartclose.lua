@@ -20,6 +20,15 @@ local function smart_close(write, bang)
 		vim.cmd("update") -- write only when modified
 	end
 
+	-- git buffers handed over by flatten.nvim (COMMIT_EDITMSG, rebase todo):
+	-- closing one must hand control back to git waiting in the terminal —
+	-- never quitall, even when it's the only "tab" open.
+	local ft = vim.bo[buf].filetype
+	if ft == "gitcommit" or ft == "gitrebase" then
+		windows.switch_away(buf)
+		return vim.cmd("bdelete" .. suffix .. " " .. buf)
+	end
+
 	if #windows.editor_wins() > 1 then
 		return vim.cmd("quit" .. suffix) -- another editor window remains
 	end

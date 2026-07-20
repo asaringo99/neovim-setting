@@ -103,88 +103,46 @@ return {
 			git = {
 				ignore = false, -- show .gitignore'd files too (secret.yaml etc.)
 			},
+			-- WSL2's inotify is unreliable, so the fs watcher often never fires
+			-- and the tree wouldn't refresh after d / create / rename. Disabling
+			-- it makes nvim-tree reload_explorer() itself right after each fs
+			-- action (see actions/fs/remove-file.lua do_remove()).
+			filesystem_watchers = {
+				enable = false,
+			},
+			-- ...and, since the watcher is off, reload the tree whenever we
+			-- re-enter it (only fires when filesystem_watchers.enable = false;
+			-- see explorer/init.lua). Catches external changes made while the
+			-- focus was in the editor / toggleterm. FocusGained below covers
+			-- changes made in a separate OS terminal.
+			reload_on_bufenter = true,
 			actions = {
 				open_file = {
 					resize_window = false, -- keep the user's (mouse-)resized width
 				},
+				remove_file = {
+					-- don't close the editor window when its file is deleted:
+					-- closing it collapses the tree|editor|terminal layout and
+					-- the next open lands in a stray split below the tree.
+					close_window = false,
+				},
 			},
 		})
 
-		-- Preview-follow: moving with j/k in the tree shows the file under
-		-- the cursor in the editor window (focus stays in the tree).
-		local api = require("nvim-tree.api")
-		local timer = vim.uv.new_timer()
-		local function preview_under_cursor()
-			if vim.bo.filetype ~= "NvimTree" then
-				return
-			end
-			local ok, node = pcall(api.tree.get_node_under_cursor)
-			if not ok or not node or node.type ~= "file" then
-				return
-			end
-			local st = vim.uv.fs_stat(node.absolute_path)
-			if not st or st.size > 1024 * 1024 then
-				return -- skip huge files
-			end
-			local ewin = require("config.windows").editor_win()
-			if not ewin then
-				return
-			end
-			local buf = vim.fn.bufadd(node.absolute_path)
-			if vim.api.nvim_win_get_buf(ewin) == buf then
-				return -- already showing this file
-			end
-			-- LIGHTWEIGHT preview: suppress autocmds so no LSP / gitsigns
-			-- machinery starts (~125ms per file otherwise), then start ONLY
-			-- the treesitter highlighter by hand for syntax colours (~ms).
-			-- The full experience kicks in when the file is really opened.
-			local ei = vim.o.eventignore
-			vim.o.eventignore = "all"
-			local ok = pcall(function()
-				vim.fn.bufload(buf)
-				vim.api.nvim_win_set_buf(ewin, buf)
-			end)
-			vim.o.eventignore = ei
-			if ok then
-				local ft = vim.filetype.match({ buf = buf })
-				local lang = ft and vim.treesitter.language.get_lang(ft)
-				if lang then
-					pcall(vim.treesitter.start, buf, lang)
-				end
-				if vim.bo[buf].filetype == "" then
-					vim.b[buf].preview_plain = true -- finish setup on real open
-				end
-			end
-		end
-		vim.api.nvim_create_autocmd("CursorMoved", {
-			desc = "nvim-tree preview follow",
+		-- Third leg of the refresh strategy (see filesystem_watchers above):
+		-- refresh when Neovim regains OS focus, catching changes made in a
+		-- separate terminal (git checkout, build output) while nvim was in
+		-- the background.
+		vim.api.nvim_create_autocmd("FocusGained", {
+			desc = "Refresh nvim-tree when Neovim regains focus",
 			callback = function()
-				if vim.bo.filetype ~= "NvimTree" then
-					return
+				if require("config.windows").win_with_ft("NvimTree") then
+					pcall(require("nvim-tree.api").tree.reload)
 				end
-				timer:stop()
-				timer:start(120, 0, vim.schedule_wrap(preview_under_cursor))
 			end,
 		})
 
-		-- When a lightweight-previewed buffer is REALLY entered (Enter in the
-		-- tree, picked from telescope, ...), run the skipped setup once:
-		-- filetype detection fires treesitter / LSP / gitsigns as usual.
-		vim.api.nvim_create_autocmd("BufEnter", {
-			desc = "Promote plain preview buffers to fully-loaded files",
-			nested = true,
-			callback = function(ev)
-				if vim.b[ev.buf].preview_plain then
-					vim.b[ev.buf].preview_plain = nil
-					-- preview buffers are unlisted; a really-opened file must
-					-- show up as a tab (bufferline) and in the S-h/S-l cycle
-					vim.bo[ev.buf].buflisted = true
-					vim.api.nvim_buf_call(ev.buf, function()
-						vim.cmd("filetype detect")
-						vim.cmd("doautocmd BufReadPost")
-					end)
-				end
-			end,
-		})
+		-- Preview-follow + promote-on-open (see that module's header)
+		require("config.treepreview").setup()
 	end,
 }

@@ -9,6 +9,10 @@ return {
       -- much cleaner with the tree / terminal splits
       globalstatus = true,
       theme = "onedark",
+      -- the winbar below is for editor windows only
+      disabled_filetypes = {
+        winbar = { "NvimTree", "toggleterm" },
+      },
     },
     sections = {
       -- relative path + "which hunk am I on / total hunks" (± 2/5)
@@ -17,6 +21,19 @@ return {
         function()
           return require("config.hunkinfo").status(0)
         end,
+      },
+    },
+    -- VS Code-breadcrumbs-style path at the top of the editor window.
+    -- Unlike the (global) statusline this always shows the file IN that
+    -- window — visible while previewing from the tree, in terminal, etc.
+    winbar = {
+      lualine_c = {
+        { "filename", path = 1, symbols = { modified = " ●", readonly = " 🔒" } },
+      },
+    },
+    inactive_winbar = {
+      lualine_c = {
+        { "filename", path = 1, symbols = { modified = " ●", readonly = " 🔒" } },
       },
     },
   },
